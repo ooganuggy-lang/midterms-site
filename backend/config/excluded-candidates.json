@@ -1,0 +1,4 @@
+{
+  "_comment": "Add FEC candidate_ids here once you've confirmed (from an official state election results page, AP, or Ballotpedia) that a candidate LOST their primary. They will be filtered out of every /api/senate and /api/house response. There is no free live API for actual primary results, so this list has to be kept up to date by hand — see backend/README.md for where to check results.",
+  "excluded_candidate_ids": []
+}

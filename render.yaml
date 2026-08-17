@@ -1,0 +1,22 @@
+services:
+  # Backend API — proxies the FEC's public candidate-filing data
+  - type: web
+    runtime: node
+    name: midterms-backend
+    plan: free
+    rootDir: backend
+    buildCommand: npm install
+    startCommand: npm start
+    envVars:
+      - key: FEC_API_KEY
+        sync: false   # Render will prompt you to paste your key when deploying
+      - key: ELECTION_CYCLE
+        value: "2026"
+
+  # Frontend — the static dashboard
+  - type: web
+    runtime: static
+    name: midterms-frontend
+    rootDir: frontend
+    buildCommand: ""
+    staticPublishPath: .
