@@ -1,0 +1,18 @@
+{
+  "name": "midterms-2026-backend",
+  "version": "1.0.0",
+  "description": "Live candidate-filing API for the 2026 Senate/House tracker, backed by the FEC's public API.",
+  "main": "server.js",
+  "engines": { "node": ">=18" },
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node --watch server.js"
+  },
+  "license": "MIT",
+  "dependencies": {
+    "cors": "^2.8.6",
+    "dotenv": "^17.4.2",
+    "express": "^5.2.1",
+    "node-cache": "^5.1.2"
+  }
+}
