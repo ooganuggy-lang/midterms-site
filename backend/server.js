@@ -6,7 +6,12 @@ const fs = require('fs');
 const path = require('path');
 
 const app = express();
-app.use(cors());
+app.disable('x-powered-by');
+app.use(cors({
+  origin: true,
+  methods: ['GET', 'OPTIONS'],
+}));
+app.use(express.json());
 
 // Manually-maintained list of candidate_ids confirmed to have lost their
 // primary. Reloaded from disk on every request (cheap, tiny file) so you
@@ -56,7 +61,7 @@ async function fecFetch(path, params = {}) {
   const cached = cache.get(cacheKey);
   if (cached) return cached;
 
-  const res = await fetch(url.toString());
+  const res = await fetch(url.toString(), { signal: AbortSignal.timeout(12000) });
   if (!res.ok) {
     const text = await res.text().catch(() => '');
     throw new Error(`FEC API ${res.status}: ${text.slice(0, 300)}`);
@@ -77,7 +82,7 @@ async function votehubFetch(path, params = {}) {
   const cached = cache.get(cacheKey);
   if (cached) return cached;
 
-  const res = await fetch(url.toString());
+  const res = await fetch(url.toString(), { signal: AbortSignal.timeout(12000) });
   if (!res.ok) {
     const text = await res.text().catch(() => '');
     throw new Error(`VoteHub API ${res.status}: ${text.slice(0, 300)}`);
@@ -211,7 +216,13 @@ function rankCandidates(candidates) {
 }
 
 app.get('/api/health', (req, res) => {
-  res.json({ ok: true, cycle: CYCLE, using_demo_key: FEC_API_KEY === 'DEMO_KEY' });
+  res.json({
+    ok: true,
+    service: 'midterms-backend',
+    cycle: CYCLE,
+    using_demo_key: FEC_API_KEY === 'DEMO_KEY',
+    uptime_seconds: Math.round(process.uptime()),
+  });
 });
 
 // GET /api/senate/:state?financials=true|false
