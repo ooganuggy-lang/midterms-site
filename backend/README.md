@@ -123,6 +123,20 @@ things before returning candidates:
    election-results page, the AP, or Ballotpedia), then add the ID here.
    Changes take effect on the next request — no restart needed.
 
+3. **Frontend nominee filtering (Senate only).** In addition to the backend
+   exclusion list, `frontend/index.html` filters each Senate race's FEC
+   filings down to the `dem_nominee` / `rep_nominee` / `independent_nominee`
+   already recorded for that state in the embedded snapshot (see the
+   `senate` object in the `#election-data` script tag), so the "Live FEC
+   filings" card shows the actual nominee(s) rather than every primary
+   candidate who ever filed. If a state's primary hasn't happened yet, that
+   party's nominee field is written as `"primary pending (<date>)"` or
+   similar, and the filter leaves that side of the race unfiltered until you
+   update it with the real winner. There's no equivalent for House races —
+   with 435 districts, per-district primary winners aren't hand-verified in
+   this snapshot, so those filings are shown ranked by polling/fundraising
+   instead, with a note pointing to FEC/Ballotpedia to confirm winners.
+
 ## Deploy it (Render, free tier)
 
 1. Push this `backend/` folder to a GitHub repo.
