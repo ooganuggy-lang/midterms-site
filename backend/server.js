@@ -256,9 +256,13 @@ app.get('/api/senate/:state', async (req, res) => {
 
 // GET /api/house/:state?district=03&financials=true|false
 // Omit ?district to get every House candidate filed in that state.
+// District accepts "00" or "AL" for at-large seats (AK, DE, MT, ND, SD, VT,
+// WY) — the FEC API itself only recognizes "00", so "AL" is normalized here
+// as a defensive fallback in case a client sends the display label as-is.
 app.get('/api/house/:state', async (req, res) => {
   const state = req.params.state.toUpperCase();
-  const district = req.query.district;
+  let district = req.query.district;
+  if (district && String(district).toUpperCase() === 'AL') district = '00';
   const includeFinancials = req.query.financials !== 'false';
   try {
     const params = { state, office: 'H', cycle: CYCLE, per_page: 100, sort: 'name' };
@@ -305,9 +309,13 @@ app.get('/api/polls/senate/:state', async (req, res) => {
 
 // GET /api/polls/house/:state/:district — live polls for a House district
 // via VoteHub. Subject format is "2026 <STATE>-<DD>", e.g. "2026 AZ-06".
+// At-large district "AL" is normalized to "00" for the same reason as the
+// /api/house route above.
 app.get('/api/polls/house/:state/:district', async (req, res) => {
   const stateAbbr = req.params.state.toUpperCase();
-  const district = String(req.params.district).padStart(2, '0');
+  let districtParam = req.params.district;
+  if (String(districtParam).toUpperCase() === 'AL') districtParam = '00';
+  const district = String(districtParam).padStart(2, '0');
   const subject = `${CYCLE} ${stateAbbr}-${district}`;
   try {
     const polls = await votehubFetch('/polls', { subject, poll_type: 'us-representative' });

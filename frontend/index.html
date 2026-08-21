@@ -236,6 +236,10 @@ function buildMap(svgId,type){
  });
 }
 buildMap('senateMap','senate');buildMap('houseMap','house');
+(function renderSenateLegend(){
+ const cats=['Solid D','Likely D','Lean D','Toss-up','Lean R','Likely R','Solid R','No 2026 race'];
+ document.getElementById('senateLegend').innerHTML=cats.map(c=>`<span><i class="sw" style="background:${COLORS[c]}"></i>${esc(c)}</span>`).join('');
+})();
 
 function selectMap(svgId,abbr){document.querySelectorAll(`#${svgId} path`).forEach(p=>p.classList.toggle('selected',p.dataset.state===abbr));}
 
@@ -252,11 +256,17 @@ function nomineeInfo(field){
 }
 function surnameOf(fecName){return String(fecName||'').split(',')[0].trim().toLowerCase()}
 function nameMatches(surname,tokens){return tokens.some(t=>t&&surname&&(surname.includes(t)||t.includes(surname)))}
+// The district grid displays "AL" for at-large seats (AK, DE, MT, ND, SD,
+// VT, WY), matching how ballots and most election sites label them. The
+// FEC and VoteHub APIs, however, use "00" for at-large districts — sending
+// "AL" through returns no results. Convert only at the API boundary so the
+// on-screen label stays "AL".
+function apiDist(d){return d==='AL'?'00':d}
 
 async function renderCandidates(el,kind,state,district){
  el.innerHTML='<div class="eyebrow">Live FEC filings</div><h3>Loading candidates…</h3>';
  try{
-   const data=await api(kind==='senate'?`/api/senate/${state}`:`/api/house/${state}?district=${encodeURIComponent(district)}`);
+   const data=await api(kind==='senate'?`/api/senate/${state}`:`/api/house/${state}?district=${encodeURIComponent(apiDist(district))}`);
    let all=data.candidates||[],note='';
    if(kind==='senate'){
      const raceInfo=DATA.senate[state];
@@ -265,9 +275,14 @@ async function renderCandidates(el,kind,state,district){
        if(dem.resolved||rep.resolved||ind.tokens.length){
          all=all.filter(c=>{
            const sn=surnameOf(c.name),partyU=String(c.party||'').toUpperCase();
-           if(nameMatches(sn,ind.tokens))return true;
-           if(partyU.startsWith('DEM'))return dem.resolved?nameMatches(sn,dem.tokens):true;
-           if(partyU.startsWith('REP'))return rep.resolved?nameMatches(sn,rep.tokens):true;
+           // Match by tracked nominee name first, regardless of the FEC
+           // party code — write-ins and party-switchers are sometimes
+           // filed under an unexpected code (e.g. "IND" instead of "REP"),
+           // and this stops a real tracked nominee from being silently
+           // dropped just because their party code didn't line up.
+           if(nameMatches(sn,dem.tokens)||nameMatches(sn,rep.tokens)||nameMatches(sn,ind.tokens))return true;
+           if(partyU.startsWith('DEM'))return!dem.resolved;
+           if(partyU.startsWith('REP'))return!rep.resolved;
            return false;
          });
        }
@@ -285,7 +300,7 @@ async function renderCandidates(el,kind,state,district){
 async function renderPolls(el,kind,state,district){
  el.innerHTML='<div class="eyebrow">Live polling</div><h3>Loading polls…</h3>';
  try{
-  const data=await api(kind==='senate'?`/api/polls/senate/${state}`:`/api/polls/house/${state}/${district}`);
+  const data=await api(kind==='senate'?`/api/polls/senate/${state}`:`/api/polls/house/${state}/${apiDist(district)}`);
   const polls=(data.polls||[]).sort((a,b)=>new Date(b.end_date||b.created_at)-new Date(a.end_date||a.created_at)).slice(0,5);
   el.innerHTML=`<div class="eyebrow">Live polling</div><h3>${data.count||polls.length} poll${(data.count||polls.length)==1?'':'s'} found</h3>`+(polls.length?`<div class="candidates">${polls.map(p=>`<div class="candidate" style="grid-template-columns:1fr auto"><div><div class="cand-name">${esc(p.pollster||'Unknown pollster')}</div><div class="cand-meta">${esc(p.end_date||p.created_at||'')} ${p.sample_size?`· n=${esc(p.sample_size)}`:''}</div></div><div class="money">${(p.answers||[]).slice().sort((a,b)=>b.pct-a.pct).slice(0,2).map(a=>esc(a.choice)+' '+a.pct+'%').join('<br>')}</div></div>`).join('')}</div>`:'<div class="loading">No race-level polls found.</div>');
  }catch(e){el.innerHTML=`<div class="eyebrow">Live polling</div><h3>Polling unavailable</h3><div class="error">${esc(e.message)}</div>`}
@@ -303,7 +318,7 @@ window.openSenate=async function(abbr){
  document.querySelectorAll('.panel').forEach(p=>p.classList.toggle('active',p.id==='panel-overview'));
  selectMap('senateMap',abbr);const r=DATA.senate[abbr];
  const box=document.getElementById('senateDetail');
- if(!r||!r.up){box.innerHTML=`<div class="eyebrow">Senate</div><h3>${esc(STATE_NAMES[abbr])}</h3><div class="meta-line">No Senate seat is on the 2026 ballot in this state.</div>`;document.getElementById('senateCandidates').innerHTML='';return}
+ if(!r||!r.up){box.innerHTML=`<div class="eyebrow">Senate</div><h3>${esc(STATE_NAMES[abbr])}</h3><div class="meta-line">No Senate seat is on the 2026 ballot in this state.</div>`;document.getElementById('senateCandidates').innerHTML='';document.getElementById('senatePolls').innerHTML='';return}
  box.innerHTML=`<div class="eyebrow">${esc(STATE_NAMES[abbr])} · U.S. Senate</div><h3>${esc(r.rating)}</h3><div class="meta-line">${r.held==='D'?'Democratic':'Republican'} seat · 2026</div><span class="rating" style="background:${COLORS[r.rating]}">${esc(r.rating)}</span><div style="margin-top:12px"><div class="kv"><span>Democratic nominee</span><b>${esc(r.dem_nominee||'—')}</b></div><div class="kv"><span>Republican nominee</span><b>${esc(r.rep_nominee||'—')}</b></div>${r.independent_nominee?`<div class="kv"><span>Notable independent</span><b>${esc(r.independent_nominee)}</b></div>`:''}${r.primary_note?`<div class="source">${esc(r.primary_note)}</div>`:''}</div>`;
  renderCandidates(document.getElementById('senateCandidates'),'senate',abbr);renderPolls(document.getElementById('senatePolls'),'senate',abbr);
 }
